@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#0a0e14">
+<meta name="description" content="Samuel Fernández – Administrador de Sistemas. Portfolio interactivo en formato terminal. Escribe 'ayuda' y explora.">
+<title>Samuel Fernández | Administrador de Sistemas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0e14;--bar:#111826;--fg:#c9d1dc;--dim:#6f7b8d;--prompt:#59c2ff;--accent:#ffb454;--ok:#7fd962;--line:#1f2a3c;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;background:var(--bg);scroll-padding-top:env(safe-area-inset-top,0px)}
+body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:15px/1.65 "JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;display:flex;flex-direction:column}
+header{flex:none;display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--bar);border-bottom:1px solid var(--line);color:var(--dim);font-size:13px}
+header i{width:11px;height:11px;border-radius:50%;background:#2a3649;display:block}
+header span{margin-left:8px}
+#term{flex:1;min-height:0;overflow-y:auto;padding:16px;cursor:text}
+#log>div{margin:0 0 10px;max-width:92ch;overflow-wrap:anywhere}
+.ps{color:var(--prompt);font-weight:700}
+.row{display:flex;gap:8px;align-items:center;max-width:92ch}
+#in{flex:1;min-width:0;background:none;border:0;outline:0;color:var(--fg);font:inherit;font-size:16px;caret-color:var(--accent);padding:2px 0}
+.h{color:var(--accent);font-weight:700}
+.k{color:var(--prompt)}
+.d{color:var(--dim)}
+.ok{color:var(--ok)}
+.job{margin:8px 0 16px;padding-left:12px;border-left:2px solid var(--line)}
+.job ul,.out ul{margin:6px 0 0;padding:0;list-style:none}
+.job li,.out li{padding-left:18px;position:relative}
+.job li::before,.out li::before{content:"-";position:absolute;left:4px;color:var(--dim)}
+a{color:var(--prompt);text-underline-offset:3px}
+a:hover{color:var(--accent)}
+table{border-collapse:collapse}
+td{padding:0 18px 2px 0;vertical-align:top}
+td:first-child{color:var(--prompt);white-space:nowrap}
+nav{flex:none;display:flex;gap:8px;overflow-x:auto;padding:10px 16px;border-top:1px solid var(--line);background:var(--bar)}
+nav button{flex:none;background:none;border:1px solid var(--line);color:var(--fg);font:inherit;font-size:13px;padding:5px 12px;border-radius:6px;cursor:pointer}
+nav button:hover{border-color:var(--prompt);color:var(--prompt)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+#in:focus-visible{outline:0}
+</style>
+</head>
+<body>
+<header><i></i><i></i><i></i><span>samuel@sistema:~</span></header>
+<main id="term" aria-label="Terminal interactiva">
+  <div id="log" aria-live="polite"></div>
+  <div class="row"><span class="ps">root:~#</span><input id="in" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-label="Escribe un comando"></div>
+</main>
+<nav id="chips" aria-label="Comandos rápidos"></nav>
+<script>
+(function(){
+var log=document.getElementById('log'),inp=document.getElementById('in'),term=document.getElementById('term'),chips=document.getElementById('chips');
+var hist=[],hi=0;
+function esc(s){return s.replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function list(a){return '<ul>'+a.map(function(x){return '<li>'+x+'</li>'}).join('')+'</ul>'}
+function job(co,role,date,items){return '<div class="job"><span class="h">'+co+'</span><br><b>'+role+'</b><br><span class="d">'+date+'</span>'+list(items)+'</div>'}
+
+var C={
+ayuda:{d:'Muestra esta lista de comandos',f:function(){
+  var rows=Object.keys(C).filter(function(k){return !C[k].hide}).map(function(k){return '<tr><td>'+k+'</td><td>'+C[k].d+'</td></tr>'}).join('');
+  return '<span class="h">Comandos disponibles</span><br><table>'+rows+'</table><span class="d">Tab autocompleta · flechas arriba/abajo recorren el historial</span>'}},
+'sobre-mi':{d:'Quién soy',f:function(){return '<span class="h">Samuel Fernández</span><br><span class="d">Administrador de Sistemas | Especialista técnico TI | Infraestructura, redes y NOC</span><br><br>Profesional del área de telecomunicaciones con amplia experiencia en gestión de redes N1 y N2, soporte técnico, administración de sistemas, creación de informes de datos, automatización de tareas y monitorización de alarmas.<br><br>He ejercido como jefe de turno en varios proyectos, tanto para el sector público (Consorcio de Compensación de Seguros) como para grandes empresas (Grupo MásOrange).'}},
+experiencia:{d:'Trayectoria profesional',f:function(){
+  return '<span class="h">Experiencia laboral</span>'
+  +job('IZERTIS','Administrador de Sistemas | CAU | Proyecto: Consorcio de Seguros','enero 2025 - actualidad',[
+    'Soporte, gestión y mantenimiento correctivo de la red del Consorcio de Compensación de Seguros de España.',
+    'Administración de entornos IBM z/OS: ejecución, monitorización y gestión de jobs mediante JCL.',
+    'Gestión de usuarios con Active Directory y configuración de GPO.',
+    'Monitorización con IBM Omegamon, SolarWinds y BMC.',
+    'Programación, monitoreo y ejecución de procesos batch en Control-M.',
+    'Gestión de incidencias con herramientas ITSM, siguiendo procedimientos ITIL.',
+    'Informes con Microsoft Power BI y automatización de tareas con Power Automate.',
+    'Inicialización, actualización y reseteo de aplicaciones y servidores con IBM WebSphere.',
+    'Soporte técnico a usuarios del Consorcio y a colaboradores externos, en entornos Windows y Linux.',
+    'Instalación y configuración de Linux en máquinas virtuales con Oracle VM VirtualBox.'])
+  +job('ZTE ESPAÑA','Jefe de equipo NOC | Grupo MásOrange | Proyecto Cantábrico','diciembre 2024 - enero 2025',[
+    'Supervisión y liderazgo de las actividades durante el turno.',
+    'Monitorización de alarmas y escalado de incidencias a N2/N3 y al incident manager.',
+    'Contacto directo con el cliente final y registro de actividades por correo electrónico.',
+    'Formación y desarrollo de las habilidades del equipo.',
+    'Comunicación con niveles superiores L2/L3.',
+    'Elaboración de informes de backlog (pendientes o acumulados).'])
+  +job('ZTE ESPAÑA','Operador NOC | Grupo MásOrange | Proyecto Cantábrico','febrero 2023 - diciembre 2024',[
+    'Monitorización de redes de banda ancha N1 y N2, y mantenimiento correctivo de la red del grupo MásOrange.',
+    'Alarmas con Zabbix, 360, Netnumen y Netcool.',
+    'Tickets en JIRA y CRM internos del proyecto, para Telecable, Euskaltel, Mundo-R y Telefónica.',
+    'Troubleshooting de conectividad, routing, switching y comunicaciones IP.',
+    'Aprovisionamiento de líneas HFC, VoIP y POTS con SHoPA, Meigas, Sacra y PuTTy.',
+    'Correlación de alarmas y análisis de causa raíz (RCA) en incidencias recurrentes.',
+    'KPIs, bases de datos SQL y funciones de PMO.',
+    'Administración de servidores Linux/Ubuntu desde terminal.',
+    'Soporte a técnicos de red y de cliente en instalaciones HFC y FTTH.'])}},
+habilidades:{d:'Habilidades y herramientas',f:function(){return '<span class="h">Habilidades</span>'+list(['Buena comunicación y liderazgo de equipos','Gestión de incidencias y troubleshooting','Resolución de problemas','Versatilidad y adaptación rápida','Elaboración de informes','Automatización de tareas','Ciberseguridad','Dominio de MS Office 365'])
+  +'<br><span class="h">Herramientas</span><table>'
+  +'<tr><td>Sistemas</td><td>Linux/Ubuntu, Windows, IBM z/OS, Active Directory, GPO, VirtualBox</td></tr>'
+  +'<tr><td>Monitorización</td><td>Omegamon, SolarWinds, BMC, Zabbix, Netnumen, Netcool, Control-M</td></tr>'
+  +'<tr><td>Gestión</td><td>ITSM, ITIL, JIRA, SQL, KPIs</td></tr>'
+  +'<tr><td>Datos</td><td>Power BI, Power Automate</td></tr>'
+  +'<tr><td>Redes</td><td>HFC, FTTH, VoIP, POTS, routing, switching</td></tr></table>'}},
+educacion:{d:'Formación académica',f:function(){return '<span class="h">Educación</span>'+list(['<b>Administración de Sistemas</b> <span class="d">2015 - 2017</span><br>Instituto Número 1 de Gijón','<b>Bachiller Ciencias Sociales</b> <span class="d">2012 - 2014</span><br>Instituto Número 1 de Gijón'])}},
+certificaciones:{d:'Cursos y certificados',f:function(){return '<span class="h">Certificaciones</span>'+list(['<b>Azure-104 Associate</b> (DIGNITAE)','Curso de Power BI: Análisis de Datos y Business Intelligence (Udemy)','Curso de Microsoft Power Automate para Principiantes (Udemy)','Introducción a la Ciberseguridad (Cisco Network Academy)','Curso de operador de drones, subcategoría A1/A3 (AESA)'])}},
+idiomas:{d:'Idiomas',f:function(){return '<span class="h">Idiomas</span>'+list(['<b>Español</b> - Nativo','<b>Inglés</b> - Avanzado, certificado por Cambridge, nivel C1'])}},
+contacto:{d:'Cómo localizarme',f:function(){return '<span class="h">Contacto</span><table>'
+  +'<tr><td>Email</td><td><a href="mailto:11samuelfernandez@gmail.com">11samuelfernandez@gmail.com</a></td></tr>'
+  +'<tr><td>LinkedIn</td><td><a href="https://www.linkedin.com/in/samuelfernandezfernandez" target="_blank" rel="noopener">linkedin.com/in/samuelfernandezfernandez</a></td></tr>'
+  +'<tr><td>WhatsApp</td><td><a href="https://wa.me/34695375426" target="_blank" rel="noopener">695 375 426</a></td></tr>'
+  +'<tr><td>Ubicación</td><td>Gijón, Asturias, España</td></tr></table>'}},
+whoami:{d:'Resumen en una línea',f:function(){return 'samuel: administrador de sistemas, NOC y redes. <span class="ok">Disponible para hablar.</span>'}},
+clear:{d:'Limpia la pantalla',f:null}
+};
+C.help=C.ayuda;C.help.hide=false;
+// alias sin duplicar en la lista
+var AL={help:'ayuda',about:'sobre-mi',sobre:'sobre-mi',exp:'experiencia',skills:'habilidades',contact:'contacto'};
+delete C.help;
+
+function line(html){var d=document.createElement('div');d.innerHTML=html;log.appendChild(d);term.scrollTop=term.scrollHeight}
+function run(raw){
+  var cmd=raw.trim().toLowerCase();
+  line('<span class="ps">root:~#</span> '+esc(raw));
+  if(!cmd)return;
+  hist.push(raw);hi=hist.length;
+  cmd=AL[cmd]||cmd;
+  if(cmd==='clear'){log.innerHTML='';return}
+  if(C[cmd]){line(C[cmd].f())}
+  else line('<span class="d">comando no encontrado: '+esc(cmd)+'. Escribe</span> <b>ayuda</b>')
+}
+inp.addEventListener('keydown',function(e){
+  if(e.key==='Enter'){run(inp.value);inp.value=''}
+  else if(e.key==='ArrowUp'){e.preventDefault();if(hi>0){hi--;inp.value=hist[hi]}}
+  else if(e.key==='ArrowDown'){e.preventDefault();if(hi<hist.length-1){hi++;inp.value=hist[hi]}else{hi=hist.length;inp.value=''}}
+  else if(e.key==='Tab'){e.preventDefault();var v=inp.value.toLowerCase();if(v){var m=Object.keys(C).filter(function(k){return k.indexOf(v)===0});if(m.length===1)inp.value=m[0]}}
+  else if(e.key==='l'&&e.ctrlKey){e.preventDefault();log.innerHTML=''}
+});
+term.addEventListener('click',function(e){if(!window.getSelection().toString()&&!e.target.closest('a'))inp.focus()});
+['sobre-mi','experiencia','habilidades','educacion','certificaciones','contacto','ayuda','clear'].forEach(function(c){
+  var b=document.createElement('button');b.type='button';b.textContent=c;
+  b.addEventListener('click',function(){run(c);inp.focus({preventScroll:true})});chips.appendChild(b)});
+line('<span class="h">¡Bienvenido a la web de Samuel Fernández!</span><br>Escribe <b>ayuda</b> para ver los comandos disponibles, o toca uno de los botones de abajo.');
+})();
+</script>
+</body>
+</html>
